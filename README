@@ -1,0 +1,9 @@
+We will be taking primarily xml files (transcripts) and modifying them so that they can be processed on the administrative side with the Banner PESC/XML Import
+Process (SHRPESI). A couple of things need to be done to the incoming xml files to prep them for processing. 
+1. Make sure the first line contains a valid UTF code
+  <?xml version = "---" encoding ="UTF-8"?>
+2. Primary root (URN)
+3. Secondary root (ColTrn:College)
+4. Proper namespaces and prefixes.
+
+
