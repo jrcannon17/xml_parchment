@@ -1,0 +1,491 @@
+#!/bin/sh
+
+# SVN: $Header$
+# This process (written in September 2013) is responsible for the download and transfer of PDF transcript files that are obtained from vendor's SFTP server location, copied to JADE, and then moved over to the L-Drive.
+# 
+# It sends a summary e-mail to the following admin (Admissions) process-specific listserv e-mail address: 
+# ADMS-TRANS-DNL-ADMIN-L@listserv.indstate.edu
+#
+# Otherwise, all technical-specific e-mails get sent to the following e-mail address:
+# ADMS-TRANS-DNL-TECH-L@listserv.indstate.edu
+#
+# This runs using the following CRONTAB:
+# 30 8 * * * /home/ccavow/nightly/admissions/xml_download/xml_downloader.shl > /dev/null 2>&1
+#
+
+function email() {
+
+lstep=`echo "$1" | sed 's/^..//'`
+lmsg=`echo -e "$2"`
+ltoday=$(date +%m_%d_%Y)_@_$(date +%I_%M_%p_%Z)
+main_log=$3
+
+main_log_name="`basename ${main_log}`"
+
+subject="ISU Admissions Parchment Process"
+heading="ISU Admissions Parchment Process Notification"
+
+# To allow more than one person, use commas after the e-mail as follows...
+email_to="joshua.cannon@indstate.edu, carol.wiemuth@indstate.edu, julie.cuffle@indstate.edu"
+#----Change email
+##email_to="ADMS-TRANS-DNL-TECH-L@listserv.indstate.edu"
+
+# Email From:
+email_from="ccavow@b-uapp-001.indstate.edu"
+
+# Email MSG (w/ HTML)
+email_msg="
+<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\" \"http://www.w3.org/TR/html4/loose.dtd\">
+<head>
+	<meta http-equiv=\"Content-Type\" content=\"text/html; charset=iso-8859-1\">
+	<link rel=\"alternate\" type=\"application/rss&#43;xml\" title=\"RSS\" href=\"rss.xml\">
+	<link rel=\"shortcut icon\" href=\"favicon.ico\" type=\"image/x-icon\">
+	<title>ISU Financial Aid Popsel Summary Results</title>
+	<style type=\"text/css\">
+		html,body{margin:0;padding:0;height:100%}
+		body{height:100%;line-height:100%;background-image:url('http://icswiki.indstate.edu/general_branding_images/new_all-blue_trans_isu_logo_174px_185px.png');background-position:center}
+	</style>
+</head>
+	<body>
+		<table id=\"heading\">
+			<tr>
+				<td><img src=\"http://icswiki.indstate.edu/general_branding_images/heading_logo_126px_135px.png\"></td>
+				<td><h2 style=\"margin-bottom:-20px\">Indiana State University</h2><p style=\"margin-top:-10px;font-style:italic;color:\#666\">$heading</p></td>
+			</tr>
+		</table>
+		<table id=\"main\" style=\"margin-top:25px;height:100%;min-height:500px;line-height:100%\">
+			<tr>
+				<td>
+					<h3 style=\"margin-left:12px;margin-bottom:12px\">The $subject requires attention.</h3>
+				</td>
+			</tr>
+			<tr>
+				<td>
+					<p style=\"margin-left:12px;font-size:90%;color:\#666\">$lmsg</p>
+					<p style=\"margin-left:12px;font-size:90%;color:\#666\">Please see <span style=\"font-style:italic;font-weight:bold\">$lstep</span> in <span style=\"font-weight:bold\">xml_downloader.shl</span> for more technical details.</p>
+				</td>
+			</tr>
+			<tr>
+				<td>
+					<p style=\"margin-left:12px;font-size:90%;color:\#666\"><br />Please contact <a href=\"mailto:it-help@indstate.edu\" title=\"Contact OIT Help Desk\">it-help@indstate.edu</a> for direct inquiries about this (ATTN: Institutional Computing Services). Log files attached.</p>
+				</td>
+			</tr>
+			<tr style=\"height:350px\">&nbsp;</tr>
+		</table>
+		<table id=\"footer\" width=\"100%\" cellspacing=\"0\" style=\"width:100%;font-size:85%;color:\#666;display:block;float:left;text-align:center\">
+                		<tr style=\"width:100%;display:block;float:left\">
+				<td align=\"center\" style=\"width:100%;display:block;float:left\">
+					<p style=\"margin-right:auto;margin-left:auto;font-size:85%;display:block;color:\#666\">Email generated ${ltoday}</p>
+				</td>
+			</tr>
+			<tr style=\"width:100%;display:block;float:left\">
+				<td align=\"center\" style=\"width:100%;display:block;float:left\">
+					<p style=\"margin-right:auto;margin-left:auto;font-size:85%;display:block;color:\#666\">200 North Seventh Street, Terre Haute, Indiana, USA 47809-1902<br>Copyright � by <a href=\"http://indstate.edu\" title=\"More. From day one.\">Indiana State University</a>. 1-800-GO-TO-ISU | 1-800-468-6478</p>
+				</td>
+			</tr>
+		</table>
+	</body>
+</html>
+";
+#evaluate 'TRUE' if string is empty 
+if [ -n "$main_log" ];
+then
+main_log=$(cat $main_log)
+fi #fi closes the if statement. fi ;; ends case statements in said block
+
+#EOF redirect input into a script or program
+#in this case, the email is constructed to be sent.
+cat << _EOF_ | /usr/lib/sendmail -t
+From: $email_from
+To: $email_to
+Subject: ${subject}_${ltoday} (Please Review)
+Date: $(date +%Y%m%d)
+Return-Path: it-help@indstate.edu
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="MAIL_BOUNDARY";
+Content-Transfer-Encoding: 7bit
+This is a message with multiple parts in MIME format.
+--MAIL_BOUNDARY
+Content-Type: text/html; charset="US-ASCII"
+"$email_msg"
+--MAIL_BOUNDARY
+Content-Type: application/html; name="$main_log_name";
+Content-Disposition: attachment; filename="$main_log_name";
+--MAIL_BOUNDARY
+$main_log
+_EOF_
+}
+
+# =======================================================================================================
+#       MAIN - START OF SCRIPT 
+# =======================================================================================================
+PATH=.:/usr/local/bin/:/usr/bin:/bin
+export ORACLE_SID=$1
+export ORAENV_ASK=NO
+. /usr/local/bin/banenv
+. /usr/local/bin/oraenv -s
+
+# Nice and neat date / timestamp...
+export today=$(date +%m_%d_%Y)_@_$(date +%I_%M_%p_%Z)
+echo $ORACLE_SID
+# Get Document type as first parameter (i.e. name of folder on parchment,novell and xml_<doc_type> on linux 
+# For testing this should be set to "college"
+DOC_TYPE=${2}
+
+# Various account variables... (b-uapp-001 is using kerberos, so we don't need a password variable for SFTP...
+
+export sftp_user=instu_35162
+
+# To manually test SMBCLIENT's connection to the Admissions share (the connection that occurs between b-uapp [Linux] and L-Drive [Windows]), use the following command:
+# smbclient //fsdata01/emdata01 -p 139 -U SC-ICS1%uDid8124A112s33 -D "Enrollment Mgt Marketing and Communication\Admissions\Data Processing\Parchment Transcript Download" 
+# Once connected, use Linux commands. For example, use "ls" to get a general listing, "rm" to delete something, etc.
+##export smbauth_file=${HOME}/.smbclient/.SC-ICS1_password
+# Determine if DOC_TYPE exists (i.e college director)
+if [ "${DOC_TYPE}" == "" ];
+then 
+##  export smbclient_commands="cd . ;"
+  export DOC_TYPE=.
+  export DOC_TYPE_DESC="- Highschool Transcripts"
+  cd ~ccavow/nightly/admissions/xml_download/
+else
+##  export smbclient_commands="cd \"${DOC_TYPE}\" ;"
+  export DOC_TYPE_DESC="- ${DOC_TYPE} Transcripts"
+  cd ~ccavow/nightly/admissions/xml_${DOC_TYPE}/
+fi
+
+# E-mail address & message variable for error messages...
+export msg="Everything looks good!"
+
+# L-DRIVE variables...
+##export ldriveserver="//fsdata01/emdata01" #L-Drive location...
+##export ldrivedir="Enrollment Mgt Marketing and Communication\Admissions\Data Processing\Parchment Transcript Download"
+#export ldrivedir="Academic Affairs/Office of Information Technology/ICS/Internal Documents/Project/4244-11074 Parchment PDF Download/Technical Info/Testing/Casey's Test Folder"
+
+# Variable used to denote where something bombed...
+export step
+
+# Used to determine what's inside the "downloads" directory...
+export files_array
+
+# Used to combine multiple index files.
+export combined_index
+
+# Create a blank log file and respective date entry...
+cat /dev/null>>"${PWD}/archive/${today}_xml_transfer_results.log"
+chmod 777 "${PWD}/archive/${today}_xml_transfer_results.log"
+master_log="${PWD}/archive/${today}_xml_transfer_results.log"
+
+
+
+# Prep the $master_log file with an easy-to-read date, title, etc.
+echo -e "\n\n=============================================">>$master_log
+echo -e "Date: $(date +%m/%d/%Y) @ $(date +%l:%M\ %p\ %Z)">>$master_log
+echo -e "=============================================">>$master_log
+
+echo -e "Initiating the Parchment XML Download Process...\n" >> $master_log
+
+#==================================================================================== Step 1: Remote Batch Download ===
+
+step="\nStep 1: Remote Batch Download ${DOC_TYPE_DESC}"
+echo -e "$step" >> $master_log
+
+# Removing anything that might be in downloads as well as the missing_xml.txt if it exists...
+echo -e "Removing anything that might exist in downloads..." >> $master_log
+rm -f downloads/* 2>/dev/null
+rm -f missing_xml.txt 2>/dev/null
+rm -f remote_cleanup_code.txt 2>/dev/null
+echo -e "...done!\n" >> $master_log
+
+echo -e "Downloading from Parchment..." >> $master_log
+# Download everything (timeout limit of 10 seconds)...
+sftp $sftp_user@sftp.parchment.com -oConnectTimeout=10 << EOF >> $master_log 2>/dev/null
+##cd $DOC_TYPE
+mget * downloads
+exit
+EOF
+success=$?
+
+# ZERO is good, 1 is bad...
+if [ $success -ne 0 ];
+then
+	rm downloads/* 2>/dev/null
+	msg="Connection problems between ISU and the Parchment servers prevented the Parchment XML Process from successfully completing. If anything was partially downloaded, it will be deleted. If this happens again during the next CRON run, someone should contact Parchment as soon as possible."
+	email "$step" "$msg" "$master_log"
+	exit 1
+else
+	echo -e "Did we download anything? Checking..." >> $master_log
+	
+	csv=`ls downloads/*.csv 2>/dev/null`
+	# If we have no CSV files (index files), THEN...
+	if [ -z "$csv" ];
+	then
+		loc=`ls downloads 2>/dev/null`
+		
+		# -z checks for NULL (in Shell parlance, this means it's checking 0 length; pg/ 126 of Oreilly)...
+		if [ -z "$loc" ];
+		then
+			# The downloads directory is empty.
+			echo -e "Nothing was downloaded because nothing was available to download from Parchment. Terminating process." >> $master_log
+			echo -e "The Admissions Transcript Downloading Process just successfully completed and found nothing available to download from Parchment." | mailx -s "Admissions XML Download Summary E-mail" "joshua.cannon@indstate.edu, carol.wiemuth@indstate.edu, julie.cuffle@indstate.edu"
+			exit 0
+		else
+			# We have something in downloads but without an index file--meaning, something odd has happened.
+			msg="No index file was found, however, we still downloaded some files. ICS staff has been notified and will be taking appropriate action on JADE. The files have approximately 23 hours to be reviewed before being removed (via CRON or manual execution of main_loader.shl--both cleanup the files in the downloads folder) from JADE and the remote originals on Parchment still exist."
+			echo -e "$msg" >> $master_log
+			echo -e "...done!\n" >> $master_log
+			email "$step" "$msg" "$master_log"
+			exit 1
+		fi
+	else
+		# File exists...
+		echo -e "An index file has been found. Continuing..." >> $master_log
+	fi
+fi
+echo -e "...done!\n" >> $master_log
+echo -e "Step 1 is done!\n" >> $master_log
+# Summary: We're now done downloading everything but the inventory is still un-verified...
+#==================================================================================== /Step 1 ===
+
+
+#==================================================================================== Step 2: Concatenation of Indexes ===
+step="\nStep 2: Concatenation of Indexes ${DOC_TYPE_DESC}"
+echo -e "$step" >> $master_log
+
+# Get every *.CSV file inside the "downloads" directory and concatenate them...
+echo -e "Concatenating indexes..." >> $master_log
+for file in `ls downloads/*.csv`
+do
+	# Take everything out of each CSV except the headings... We append due to loop. New file will still be created.
+	# tail -n +2 $file | tr -d '"' >> downloads/master_${today}.csv #cjb - This might fix everything with the sequence number formatting that D. mentioned.
+	tail -n +2 $file >> downloads/master_${today}.csv
+	success=$?
+
+	# ZERO is good, 1 is bad...
+	if [ $success -ne 0 ];
+	then
+		# If we trip this, something stupid happened during concatenation (b-uapp might have a cold!). 
+		# If possible, remove the master logfile, send an e-mail, and bail...
+		rm downloads/master_${today}.csv
+		msg="Something bad occurred during the Concatenation. There might be an issue with JADE. Please investigate and attempt to re-run the Parchment XML Download process by manually executing xml_downloader.shl ${DOC_TYPE} from the prompt."
+		
+		# Remove everything in downloads...
+		echo -e "Removing everything from downloads..." >> $master_log
+		rm downloads/*
+		echo -e "...done!\n" >> $master_log
+		
+		email "$step" "$msg" "$master_log"
+		exit 1
+	fi
+done
+echo -e "...done!\n" >> $master_log
+
+if [ -s downloads/master_${today}.csv ];
+then
+	# Sort master index and remove duplicates in this file...
+	echo -e "Sorting master index..." >> $master_log
+	sort downloads/master_${today}.csv | uniq > temp3.csv
+	cp temp3.csv downloads/master_${today}.csv
+	echo -e "...done!\n" >> $master_log
+else
+	exit 0
+fi
+
+echo -e "Step 2 is done!\n" >> $master_log
+# Summary: At this point, we now have 1 single concatenated index file. Time to remove the remote originals...
+#==================================================================================== /Step 2 ===
+
+
+#==================================================================================== Step 3: Download Verification and Remote Cleanup ===
+step="\nStep 3: Download Verification and Remote Cleanup ${DOC_TYPE_DESC}"
+echo -e "$step" >> $master_log
+
+# Assign the values from the filename column within our beloved index file and remove the quotes...
+echo -e "Creating combined_index..." >> $master_log
+
+# Read file as CSV format separated Field separator into variable combined_index
+combined_index=`awk -F '","|^"|"$' '{printf "%s|",$2}' "downloads/master_${today}.csv" | tr -d '"' `
+echo -e "...done!\n" >> $master_log
+
+echo -e "Making sure we have everything..." >> $master_log
+# Before we remove anything, let's verify that what we downloaded is really what we HAVE... We can't trust SFTP!
+# Set bash field separator to pipe for for loop because file name may contain spaces or commas
+IFS=$'|'
+for item in $combined_index
+do
+	# See if the file exists in downloads...
+	if [ -s downloads/$item ];
+	then
+		# Now let's stock our smbclient_commands variable with the "put" commands we'll need for SMBCLIENT...
+		echo -e "Adding SMBCLIENT PUT directive for ${item} to the smbclient_commands variable..." >> $master_log
+		smbclient_commands+=`echo -n "put \"${item}\";"`
+		echo -e "...done!" >> $master_log
+	else
+		# Hang on to the missing files... 
+		# This helps us do the following:
+		# 1.) We'll know which files to remove from our remote_cleanup_code.txt file... 
+		# 2.) We'll know which missing transcripts to manually re-download or investigate... 
+		echo -e "We missed some downloads! Taking inventory of ${item}..." >> $master_log
+		echo -e "$item" >> missing_xml.txt
+		echo -e "...done!\n" >> $master_log
+	fi
+done
+# Reset bash field separator back to space 
+IFS=$' '
+# If missing_xml.txt has data in it, we need to send an e-mail (without terminating) to notify respective parties of missing XML.
+# (Noneexistent file == same outcome having no data in the file would have.)
+if [ -s missing_xml.txt ];
+then
+	echo -e "XMLs are missing. Sending discrepancies e-mail..." >> $master_log
+	msg="It has been determined that discrepancies exist between what ISU has downloaded from Parchment and the inventory from within the Parchment index file. Please review these and determine what course of action to take (you may be required to manually download them through the Parchment web interface at https://exchange.parchment.com/u/auth/login, otherwise, please contact Parchment directly). The missing files can be found in the attached log file."
+	email "$step" "$msg" "$master_log"
+	echo -e "...done!\n" >> $master_log
+	exit 1
+fi
+
+# This is a delete for a file that may not exist but it's here to ensure that we always have a fresh missing_from_ldrive.txt... (We always need to start with no file.)
+if [ -s missing_from_ldrive.txt ];
+then
+	rm missing_from_ldrive.txt
+fi
+
+# Add a sequence column to the master index file (it's for Admissions and their common matching process) and ensure proper quotes...
+echo -n "Adding sequence column to master index and adding proper quotes..." >> $master_log
+
+# Make sure we have proper quotes...
+#awk '{ print $0 ",\x22" NR "\x22" }' downloads/master_${today}.csv > temp.csv
+awk '{print "\x22"NR"\x22,"$0}' downloads/master_${today}.csv > temp.csv
+cp temp.csv downloads/master_${today}.csv
+echo -e "...done!\n" >> $master_log
+
+# Transform the date columns into their own individual columns. Thanks to "emg" from IIRC...
+# CJB Todo: Change YYYY to YY and adjust the dates in Phase 2...
+# echo -e "Individualizing the date columns in master index..." >> $master_log
+# awk -F, -vOFS=, '{gsub("/", ",", $4)}1'  downloads/master_${today}.csv > temp.csv
+# awk -F, -vOFS=, '{gsub("/", ",", $11)}1'  temp.csv > downloads/master_${today}.csv
+# echo -e "...done!\n" >> $master_log
+
+# Add the master index to the deliverable...
+smbclient_commands+=`echo -n "put \"master_${today}.csv\";"`
+
+echo -e "Using SMBCLIENT to connect to Admissions L-DRIVE location for final transfer..." >> $master_log
+cd downloads
+##smbclient $ldriveserver -p 139 -A${smbauth_file} -D "$ldrivedir" -c "$smbclient_commands" << EOF | tee -a $master_log >> ../missing_from_ldrive.txt 2>/dev/null
+ls *.xml >> ../missing_from_ldrive.txt 2>/dev/null
+##exit
+##EOF
+##smbclient_success=$?
+
+echo -e "...done!\n" >> $master_log
+
+echo -e "Did we miss anything during L-Drive transfer? Checking..." >> $master_log
+if [ -s ../missing_from_ldrive.txt ];
+then
+	# Something wierd happened during SMBCLIENT transfer... If we see that missing_from_ldrive.txt has data in it, then that means that we have some PDFs that need to be moved
+	# to the L-Drive still. Let's log this, send this information in an e-mail, but continue processing...
+	echo -e "Warning: Some files failed to be transferred to the L-DRIVE! Sending missing inventory e-mail..." >> $master_log
+	msg=`echo -e "Warning: Some files failed to be transferred to the L-DRIVE. These files can be found in the attached log file and need to be transferred using SMBCLIENT from the command line on JADE (remove the original files once they copied--everything has been archived, so if you mistakenly remove anything, the archive for this process can be found in the archive directory). Look in xml_downloader.shl for the exact syntax to use (the SMBCLIENT syntax is parameterized but once you make the connection to the L-Drive, it works almost exactly like Linux SFTP: connect to the L-Drive server, make sure you are in the appropriate Admissions directory, and then just PUT the files."`
+	email "$step" "$msg" "$master_log"	
+	echo -e "...done!\n" >> $master_log
+else
+	echo -e "Everything was transferred successfully! Continuing..." >> $master_log
+fi
+cd ..
+
+######################################################################################################################################
+# Make the remote_cleanup_code.txt file...											     #
+######################################################################################################################################
+echo -e "\nEntering remote_cleanup_code generation..." >> $master_log
+
+echo -e "Building remote_cleanup_code rm commands..." >> $master_log
+
+# Change to correct remote directory if given as dest_dir parameter...
+# Determine if DOC_TYPE parameter exists (i.e college director)
+
+# # if [ "${DOC_TYPE}" != "" ];
+# # then
+  # # echo -e "cd ${DOC_TYPE}" >> remote_cleanup_code.txt
+# # fi
+
+# Adding rm commands for files found in master index...
+# Set bash field separator to pipe for for loop because file name may contain spaces or commas
+IFS=$'|'
+for item in $combined_index
+do
+	# Now let's add "rm" commands to remote_cleanup_code.txt that we'll need for SFTP for whatever we see in the master index file...
+	echo -e "rm \"${item}\"" | tee -a remote_cleanup_code.txt >> $master_log
+done
+# Reset bash field separator back to space 
+IFS=$' '
+
+echo -e "...done adding rms for the files from master index!\n" >> $master_log
+
+# Adding the original indexes to the removal payload (but not the master index)!
+# Change bash field separator to newline for the following commands
+IFS=$'\n'
+for file in `ls downloads/index_*.{csv,txt}`
+do
+	# Now let's add "rm" commands to remote_cleanup_code.txt that we'll need for SFTP for whatever ORIGINAL index files we might have (excluding master index)...
+	echo -e "rm \"`basename $file`\"" | tee -a remote_cleanup_code.txt >> $master_log
+done
+# Reset bash field separator back to space 
+IFS=$' '
+
+echo -e "...done adding rms for the original index files!\n" >> $master_log
+
+# Don't forget our SFTP exit command...
+echo -e "exit" >> remote_cleanup_code.txt
+
+echo -n "Creation of remote_cleanup_code.txt successful. Open this file to view the rm commands being issued against Parchment SFTP!" >> $master_log
+
+# Perform final SFTP batch cleanup... If everything successfully completes, we remove our command file (temp.txt).
+# Otherwise, we hang on to it to be used later as remaining files will still be listed in it...
+echo -e "Connecting to Parchment to execute final cleanup..." >> $master_log
+sftp -b remote_cleanup_code.txt $sftp_user@sftp.parchment.com >> $master_log
+success=$?
+
+# ZERO is good, 1 is bad...
+if [ $success -ne 0 ];
+then
+	echo -e "Problems executing remote cleanup!" >> $master_log
+	# If we trip this, there was probably a network error. This means we'll need to perform cleanup during next CRON run (so no worries, but e-mail still gets sent)...
+	msg="Some problems occurred during remote removal. This is likely the result of a failed connection, network traffic, etc. Please review the log file to determine which rm commands need to be executed against the Parchment server."
+	email "$step" "$msg" "$master_log"
+	exit 1
+else
+	echo -e "...done!\n" >> $master_log
+fi
+
+echo -e "Step 3 is done!\n" >> $master_log
+#==================================================================================== /Step 3 ===
+
+
+#==================================================================================== Step 4: Delete Local Erroneous Files ===
+step="\nStep 4: Delete Local Erroneous Files ${DOC_TYPE_DESC}"
+echo -e "$step" >> $master_log
+
+echo -e "Cleaning up in JADE..." >> $master_log
+
+echo -e "Removing temp3.csv, remote_cleanup_code.txt, and our master index file..." >> $master_log
+rm temp3.csv remote_cleanup_code.txt temp.csv 
+echo -e "...done!\n" >> $master_log
+
+echo -e "Step 4 is done!\n" >> $master_log
+#==================================================================================== /Step 4 ===
+
+echo -e "Questions or comments about this process can be sent to it-help@indstate.edu. Please direct e-mail to Institutional Computing Services, ATTN.\n" >> $master_log
+
+# Archive everything first before deleting...
+echo -e "Archiving everything inside downloads..." >> $master_log
+zip -q archive/downloads_from_${today} downloads/*
+zip -gq archive/downloads_from_${today} archive/`basename $master_log`
+rm $master_log
+
+##xml_number=`ls -1 downloads/*.pdf 2>/dev/null | wc -l`
+xml_number=`ls -1 downloads/*.xml 2>/dev/null | wc -l`
+echo -e "The Admissions Transcript Downloading Process just successfully completed. The total number of PDFs transferred: $xml_number - The total number of XMLs transferred: $xml_number \n\nPlease contact ICS for any comments, questions, etc." | mailx -s "Admissions XML Download Summary E-mail - ${DOC_TYPE_DESC}" "joshua.cannon@indstate.edu, carol.wiemuth@indstate.edu, julie.cuffle@indstate.edu"
+
+#========== / Automate deletion for cleanup 
+
+#mv to archive on sftp site. 
+#implement 30-60 day deletion of files on ccavow.
+#data home not essential as of yet. 
