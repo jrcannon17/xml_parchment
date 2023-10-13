@@ -2,17 +2,22 @@ import os
 import xml.etree.ElementTree as ET
 import re
 from io import StringIO
+import shutil
+# def main():
+
+downloads_dir = "/home/ccavow/nightly/admissions/downloads"
+f_output_dir = "/home/ccavow/nightly/admissions/file_output"
 
 '''
 -------------STEP 1---------------------
  create function
  '''
+
+
 def Transform_Parchment(parchment):
-    '''this works'''
-        #file to be changed
-    with (
-        open(parchment, 'r+') as f
-        ):
+    """this works"""
+    # file to be changed
+    with open(f"{parchment}", 'r+') as f:
         tree = ET.parse(f)
         root_output = tree.getroot()
 
@@ -30,11 +35,11 @@ def Transform_Parchment(parchment):
             temp = name.text.split()
             for x in temp:
                 Student.append(x)
-                for name in f:
-                    file = name.split()
-                    new_f = file.insert(-1, Student[2])
-                    os.rename(f, new_f)
-                    # print(new_f)
+                # for name in :
+                #     file = name.split()
+                #     new_f = file.insert(-1, Student[2])
+                #     os.rename(f, new_f)
+                # print(new_f)
     except IndexError:
         NStudent = ''
     else:
@@ -54,7 +59,7 @@ def Transform_Parchment(parchment):
             # print(element)
             element.insert(1, FICE_tag)
         # print(element)
-        #ET.dump(element)
+        # ET.dump(element)
     '''
     -------------------STEP 4----------------------
     replace current root with ColTrn Tag with appropiate namespaces, prefixes and attributes by the following:
@@ -71,7 +76,7 @@ def Transform_Parchment(parchment):
     should and IS the preferred way.
     '''
 
-    #create dictionary of namespaces contained in the ColTrn tag
+    # create dictionary of namespaces contained in the ColTrn tag
 
     ns_map = {
 
@@ -81,10 +86,10 @@ def Transform_Parchment(parchment):
         "xmlns:AcRec": "urn:org:pesc:sector:AcademicRecord:v1.9.0",
         "xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance"}
 
-    #create name space for the actual tag
+    # create name space for the actual tag
 
     ns = {"ColTrn": "CollegeTranscript"}
-    #now we register the name spaces
+    # now we register the name spaces
     '''we do this twice for two reasons
         1: the tag itself is a name space so this is separated because
         2: the tag is nothing but several namespaces
@@ -92,11 +97,10 @@ def Transform_Parchment(parchment):
         Ultimately, only the selected [key] will display the namespace instead of the entire dict'''
 
     for prefix, uri in ns_map.items():
-            ET.register_namespace(prefix, uri)
+        ET.register_namespace(prefix, uri)
 
     for prefix, uri in ns.items():
-            ET.register_namespace(prefix,uri)
-
+        ET.register_namespace(prefix, uri)
 
     '''changes to ns0 so we can't use this. Do you know why? Look up QName and it should be obvious'''
     # rootCol = ET.Element(ET.QName(ns_map["ColTrn"], "CollegeTranscript"))
@@ -163,7 +167,7 @@ def Transform_Parchment(parchment):
                     if ptr != 1:
                         fw.write(line)
                     ptr += 1
-        print("Deleted")
+        print(f"Shebang for {parchment} deleted")
 
     except:
         print("Oops! something error")
@@ -182,12 +186,14 @@ def Transform_Parchment(parchment):
         '''
     with open(parchment, 'r') as f:
         data = f.read()
-    with open(NStudent+parchment, 'a') as g:
-        g.write("""<?xml version="1.0" encoding="UTF-8"?>\n<urn:AcademicRecordBatch xmlns:urn="urn:org:pesc:message:AcademicRecordBatch:v1.0.0"> \n""" + data + "\n</urn:AcademicRecordBatch>\n")
+    with open(NStudent + parchment, 'a') as g:
+        g.write(
+            """<?xml version="1.0" encoding="UTF-8"?>\n<urn:AcademicRecordBatch xmlns:urn="urn:org:pesc:message:AcademicRecordBatch:v1.0.0"> \n""" + data + "\n</urn:AcademicRecordBatch>\n")
 
         g.close()
 
     return
+
 
 '''search current directory for all xml files and perform Transform_Parchment()'''
 
@@ -197,26 +203,83 @@ find xml files and run parchment() on it.
 
 '''
 # try:
-#     i = 0
-#     for x in os.listdir():
-#         if x.endswith(".xml"): #and x.startswith('TWV'):
-#             #print .xml files in directory
-#             print(x)
-#             Transform_Parchment(x)
-#             # if os.path.exists(x % i):
-#             #     i+=1
-#             # fh = open(x %i, "w")
+# i = 0
+# for x in os.listdir():
+#     if x.endswith(".xml"):  # and x.startswith('TWV'):
+#         # print .xml files in directory
+#         print(x)
+#         Transform_Parchment(x)
+        # if os.path.exists(x % i):
+        #     i+=1
+        # fh = open(x %i, "w")
 # except:
 #     print("Problem with parchment")
-missed = []
-for x in os.listdir():
-    if x.endswith(".xml"):  # and x.startswith('TWV'):
-        # print .xml files in directory
+# missed = []
+for x in os.listdir(downloads_dir):
+    if x.endswith(".xml"):
         print(x)
-        with open(x, 'r') as f:
-            lines = f.readlines()
-            if '<?' in lines:
+        if x.startswith('TW') or x.startswith('TE'):
+# print .xml files in directory
 
-                Transform_Parchment(x)
-            else:
-                print('pass')
+            Transform_Parchment(x)
+            print(x)
+
+
+for x in os.listdir(downloads_dir):
+    if x.endswith(".xml"):
+        print(x)
+        if not (x.startswith('TW') or x.startswith('TE')):
+# print .xml files in directory
+            source_path = os.path.join(downloads_dir, x)
+            destination_path = os.path.join(f_output_dir, x)
+            shutil.move(source_path,destination_path)
+            print(f"Moved {x} to {f_output_dir}")
+
+for file_name in os.listdir(downloads_dir):
+    file_path = os.path.join(downloads_dir, file_name)
+    try:
+        if os.path.isfile(file_path):
+            os.remove(file_path)
+            print(f"Deleted {file_name} from {downloads_dir}")
+    except Exception as e:
+        print(f"Error deleting {file_name}: {str(e)}")
+#
+# with open(x, 'r') as f:
+#     lines = f.readlines()
+#     if '<?' in lines:
+
+#         Transform_Parchment(x)
+#     else:
+#         print('pass')
+
+# Create a set to store the names of the files that have already been processed
+# processed_files = set()
+#
+# def process_file(file_name):
+#     # Write your function to process the file here
+#     print(f"Processing {file_name}")
+#     Transform_Parchment(file_name)
+# def process_files_in_directory(directory_path):
+#     global processed_files, file_path
+#
+#     # Iterate over the files in the given directory
+#     for file_name in os.listdir(directory_path):
+#         if file_name.endswith(".xml"):
+#             if file_name.startswith('TW'):
+#
+#                 file_path = os.path.join(directory_path, file_name)
+#
+#         # Check if the file has already been processed
+#                 if file_name not in processed_files:
+#                     process_file(file_path)
+#
+#                     # Add the file name to the set of processed files
+#                     processed_files.add(file_name)
+#
+# Example usage:
+# if __name__ == "__main__":
+#     directory_to_process = '.'
+#     process_files_in_directory(directory_to_process)
+
+# directory_to_process = '.'
+# process_files_in_directory(directory_to_process)
