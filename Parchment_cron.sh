@@ -10,16 +10,27 @@
 # This runs using the following CRONTAB:
 # 30 8 * * * /home/ccavow/nightly/admissions/xml_download/xml_downloader.shl > /dev/null 2>&1
 # run at 8:30 
-
 # Set source and destination paths
+
+#STEP 0
+
+rm downloads/*
+rm archive/*
+rm file_output/*
+
 #STEP 1
 #Transfer parchment files from ccavow to DEVL under /student/xml_transcript/
 
-SOURCE_DIR="/u02/banner/datahome/DEVL/student/xmltranscript/"
+SOURCE_DIR="/u02/banner/datahome/DEVL/student/"
 DESTINATION_USER="ccavow"
 DESTINATION_SERVER="b-prod-uapp-1"
 DESTINATION_DIR="/home/ccavow/nightly/admissions/xml_college/archive"
-DEVL_CCAVOW_DIR="~ccavow/nightly/admissions/xml_college/archive"
+DEVL_CCAVOW_DIR="~ccavow/nightly/admissions/"
+
+
+#Calculate the date for files received for todays date (adjust as needed)
+TODAY=$(date +"%m_%d_%Y")
+echo "$TODAY"
 # Run sftp to transfer data
 
 # SFTP command to transfer files
@@ -32,7 +43,8 @@ cd "$DEVL_CCAVOW_DIR" || exit 1
 echo "Transferring Files from CCAVOW"
 sftp -p "$DESTINATION_USER@$DESTINATION_SERVER" -oConnectTimeout=10mget << EOF  
 cd "$DESTINATION_DIR" || exit 1
-mget downloads_from_09_*.zip
+mget *$TODAY*.zip
+
 exit 
 EOF
 for i in $DEVL_CCAVOW_DIR; do 
@@ -55,22 +67,23 @@ for zip_file in *.zip; do
 done
 cd ~ccavow/nightly/admissions/downloads || exit 1
 
-#STEP 2
+
 #Run Python Script to convert all xml files to appropiate format for processing
 
 
 python3 ../xml_conversion.py
 
-cp ../file_output/*.xml "$SOURCE_DIR"
+# cp ../file_output/*.xml "$SOURCE_DIR"
 
-for file in *.xml; do
-    echo "$file";
-    if [ -f "$file" ]; then
-    # Optionally, remove the zip file after extraction
-        rm "$file";
-    echo "$file";
-    fi
-done
+# for file in *.xml; do
+#     echo "$file";
+#     if [ -f "$file" ]; then
+#     # Optionally, remove the zip file after extraction
+#         rm "$file";
+#     echo "$file";
+#     fi
+# done
+
 echo "Transforming parchment files"
  
 #python ../b.py
